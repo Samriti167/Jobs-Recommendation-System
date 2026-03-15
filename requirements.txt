@@ -9,3 +9,5 @@ PyPDF2
 beautifulsoup4
 lxml
 apify-client
+python-dotenv
+google-generativeai
