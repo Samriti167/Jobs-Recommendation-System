@@ -27,6 +27,15 @@ def init_db():
             date_posted DATE DEFAULT CURRENT_DATE
         )
     ''')
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS saved_jobs(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT,
+        job_link TEXT,
+        UNIQUE(username, job_link)
+    )
+    """)
     conn.commit()
     conn.close()
 
@@ -233,3 +242,32 @@ def clear_database():
     c.execute("DELETE FROM jobs")
     conn.commit()
     conn.close()
+
+
+# Add these to the bottom of backend.py
+def save_job_for_user(username, job_link):
+    """Saves a job link to a user's profile."""
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO saved_jobs (username, job_link) VALUES (?, ?)", (username, job_link))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False # Job was already saved
+    finally:
+        conn.close()
+
+def get_saved_jobs(username):
+    """Fetches all saved jobs for a specific user."""
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("""
+        SELECT jobs.title, jobs.company, jobs.link 
+        FROM jobs 
+        JOIN saved_jobs ON jobs.link = saved_jobs.job_link 
+        WHERE saved_jobs.username = ?
+    """, (username,))
+    saved = c.fetchall()
+    conn.close()
+    return saved

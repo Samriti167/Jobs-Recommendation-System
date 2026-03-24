@@ -11,3 +11,4 @@ lxml
 apify-client
 python-dotenv
 google-generativeai
+fpdf2
