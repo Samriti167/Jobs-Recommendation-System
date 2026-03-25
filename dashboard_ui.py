@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 
 # Import your local modules
-from backend import init_db, fetch_rss_jobs, DB_NAME
+from backend import init_db, fetch_rss_jobs, DB_NAME, save_job_for_user, get_saved_jobs, remove_saved_job
 from ai_engine import extract_text_from_pdf, clean_text, calculate_similarity
 
 # --------------------------------
@@ -33,16 +33,7 @@ def ask_gemini(prompt):
         return f"Error connecting to AI: {e}"
 
 # --------------------------------
-# FEATURE: RESUME BUILDER FUNCTION
-# --------------------------------
-# --------------------------------
-# FEATURE: RESUME BUILDER FUNCTION (Now with PDF!)
-# FEATURE: ADVANCED RESUME BUILDER
-# --------------------------------
-
-
-# --------------------------------
-# FEATURE: CLASSIC ATS RESUME BUILDER
+# FEATURE: AI ATS RESUME BUILDER
 # --------------------------------
 def render_resume_builder():
     """Renders a dynamic, AI-powered ATS resume builder."""
@@ -65,7 +56,6 @@ def render_resume_builder():
         st.session_state[f"proj_bullets_{idx}"] = ask_gemini(prompt)
         st.toast("✅ Enhancement complete!", icon="✅")
 
-
     # --- Initialize Session State for Dynamic Fields ---
     if 'exp_count' not in st.session_state: st.session_state['exp_count'] = 1
     if 'proj_count' not in st.session_state: st.session_state['proj_count'] = 1
@@ -79,16 +69,16 @@ def render_resume_builder():
     # --- 1. Personal Details ---
     st.subheader("1. Personal Details")
     col1, col2 = st.columns(2)
-    first_name = col1.text_input("First Name *", value="Alex")
-    last_name = col2.text_input("Last Name *", value="Carter")
+    first_name = col1.text_input("First Name *", value="Samriti")
+    last_name = col2.text_input("Last Name *", value="")
     
     col3, col4 = st.columns(2)
-    email = col3.text_input("Email Address *", value="alex.carter@email.com")
+    email = col3.text_input("Email Address *", value="samriti@email.com")
     phone = col4.text_input("Phone Number", value="(555) 012-3456")
     
     col5, col6 = st.columns(2)
-    location = col5.text_input("City, State", value="San Francisco, CA")
-    linkedin = col6.text_input("LinkedIn / Portfolio URL", value="linkedin.com/in/alexcarter")
+    location = col5.text_input("City, State", value="Jalandhar, Punjab")
+    linkedin = col6.text_input("LinkedIn / Portfolio URL", value="linkedin.com/in/samriti")
 
     # --- 2. Professional Summary ---
     st.subheader("2. Professional Summary")
@@ -97,9 +87,9 @@ def render_resume_builder():
     # --- 3. Education ---
     st.subheader("3. Education")
     col_ed1, col_ed2 = st.columns(2)
-    degree = col_ed1.text_input("Degree / Program", value="B.S. in Computer Science")
-    school = col_ed2.text_input("University / Institution", value="University of Technology")
-    grad_date = st.text_input("Graduation Date (e.g., Expected May 2026)", value="Expected May 2026")
+    degree = col_ed1.text_input("Degree / Program", value="B.Tech in Computer Science")
+    school = col_ed2.text_input("University / Institution", value="DAV Institute of Engineering & Technology")
+    grad_date = st.text_input("Graduation Date (e.g., Expected May 2026)", value="Expected 2027")
 
     # --- 4. Work Experience (Dynamic) ---
     st.subheader("4. Work Experience")
@@ -117,7 +107,6 @@ def render_resume_builder():
         with c_text:
             bullets = st.text_area("Bullets", key=f"exp_bullets_{i}", label_visibility="collapsed", height=120)
         with c_btn:
-            # Replaced the if statement with an on_click callback!
             st.button("✨ Enhance via AI", key=f"ai_exp_{i}", on_click=enhance_exp_callback, args=(i,))
                     
         experiences.append({"title": job_title, "company": company, "dates": job_dates, "bullets": bullets})
@@ -144,7 +133,6 @@ def render_resume_builder():
         with c_text_p:
             p_bullets = st.text_area("Project Bullets", key=f"proj_bullets_{i}", label_visibility="collapsed", height=100)
         with c_btn_p:
-            # Replaced the if statement with an on_click callback!
             st.button("✨ Enhance via AI", key=f"ai_proj_{i}", on_click=enhance_proj_callback, args=(i,))
                     
         projects.append({"name": proj_name, "role": proj_role, "dates": proj_dates, "bullets": p_bullets})
@@ -157,7 +145,7 @@ def render_resume_builder():
 
     # --- 6. Skills ---
     st.subheader("6. Core Skills")
-    skills = st.text_input("Technical Skills (Comma separated)", value="Python, Java, SQL, React, AWS, Docker, Machine Learning, Git")
+    skills = st.text_input("Technical Skills (Comma separated)", value="Python, SQL, Machine Learning, Data Analytics, Networking, Streamlit, Pandas")
 
     st.markdown("---")
     
@@ -172,14 +160,14 @@ def render_resume_builder():
                 pdf.set_auto_page_break(auto=True, margin=15)
                 
                 # Helper function to remove weird characters (ATS safety)
-                def clean_text(text):
+                def clean_pdf_text(text):
                     text = text.replace("•", "-").replace("⭐", "").replace("✨", "")
                     return text.encode('latin-1', 'replace').decode('latin-1')
 
                 # --- HEADER ---
-                full_name = f"{first_name} {last_name}"
+                full_name = f"{first_name} {last_name}".strip()
                 pdf.set_font("Times", "B", 24)
-                pdf.cell(0, 10, clean_text(full_name), ln=True, align="C")
+                pdf.cell(0, 10, clean_pdf_text(full_name), ln=True, align="C")
                 
                 contact_info = []
                 if location: contact_info.append(location)
@@ -188,12 +176,12 @@ def render_resume_builder():
                 if linkedin: contact_info.append(linkedin)
                 
                 pdf.set_font("Times", "", 10)
-                pdf.cell(0, 5, clean_text(" | ".join(contact_info)), ln=True, align="C")
+                pdf.cell(0, 5, clean_pdf_text(" | ".join(contact_info)), ln=True, align="C")
                 pdf.ln(4)
 
                 def draw_section_header(title):
                     pdf.set_font("Times", "B", 11)
-                    pdf.cell(0, 6, clean_text(title), ln=True, align="L")
+                    pdf.cell(0, 6, clean_pdf_text(title), ln=True, align="L")
                     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
                     pdf.ln(2)
 
@@ -201,16 +189,16 @@ def render_resume_builder():
                 if summary:
                     draw_section_header("PROFESSIONAL SUMMARY")
                     pdf.set_font("Times", "", 10)
-                    pdf.multi_cell(0, 5, clean_text(summary))
+                    pdf.multi_cell(0, 5, clean_pdf_text(summary))
                     pdf.ln(4)
 
                 # --- EDUCATION ---
                 if degree or school:
                     draw_section_header("EDUCATION")
                     pdf.set_font("Times", "B", 10)
-                    pdf.cell(0, 5, clean_text(school), ln=True)
+                    pdf.cell(0, 5, clean_pdf_text(school), ln=True)
                     pdf.set_font("Times", "", 10)
-                    pdf.cell(0, 5, clean_text(f"{degree} | {grad_date}"), ln=True)
+                    pdf.cell(0, 5, clean_pdf_text(f"{degree} | {grad_date}"), ln=True)
                     pdf.ln(4)
 
                 # --- EXPERIENCE (Dynamic Loop) ---
@@ -218,16 +206,16 @@ def render_resume_builder():
                 for exp in experiences:
                     if exp["title"] or exp["company"]:
                         pdf.set_font("Times", "B", 10)
-                        pdf.cell(0, 5, clean_text(exp["title"]), ln=True)
+                        pdf.cell(0, 5, clean_pdf_text(exp["title"]), ln=True)
                         pdf.set_font("Times", "I", 10)
-                        pdf.cell(0, 5, clean_text(f"{exp['company']} | {exp['dates']}"), ln=True)
+                        pdf.cell(0, 5, clean_pdf_text(f"{exp['company']} | {exp['dates']}"), ln=True)
                         
                         pdf.set_font("Times", "", 10)
                         for line in exp["bullets"].split('\n'):
                             if line.strip():
                                 bullet = line.strip() if line.strip().startswith("-") else f"- {line.strip()}"
                                 pdf.set_x(15) 
-                                pdf.multi_cell(0, 5, clean_text(bullet))
+                                pdf.multi_cell(0, 5, clean_pdf_text(bullet))
                         pdf.ln(2)
                 pdf.ln(2)
 
@@ -236,16 +224,16 @@ def render_resume_builder():
                 for proj in projects:
                     if proj["name"]:
                         pdf.set_font("Times", "B", 10)
-                        pdf.cell(0, 5, clean_text(proj["name"]), ln=True)
+                        pdf.cell(0, 5, clean_pdf_text(proj["name"]), ln=True)
                         pdf.set_font("Times", "I", 10)
-                        pdf.cell(0, 5, clean_text(f"{proj['role']} | {proj['dates']}"), ln=True)
+                        pdf.cell(0, 5, clean_pdf_text(f"{proj['role']} | {proj['dates']}"), ln=True)
                         
                         pdf.set_font("Times", "", 10)
                         for line in proj["bullets"].split('\n'):
                             if line.strip():
                                 bullet = line.strip() if line.strip().startswith("-") else f"- {line.strip()}"
                                 pdf.set_x(15)
-                                pdf.multi_cell(0, 5, clean_text(bullet))
+                                pdf.multi_cell(0, 5, clean_pdf_text(bullet))
                         pdf.ln(2)
                 pdf.ln(2)
 
@@ -254,7 +242,7 @@ def render_resume_builder():
                     draw_section_header("TECHNICAL SKILLS")
                     pdf.set_font("Times", "", 10)
                     skills_list = [s.strip() for s in skills.split(',') if s.strip()]
-                    pdf.multi_cell(0, 5, clean_text(", ".join(skills_list)))
+                    pdf.multi_cell(0, 5, clean_pdf_text(", ".join(skills_list)))
 
                 pdf_bytes = pdf.output()
 
@@ -265,12 +253,15 @@ def render_resume_builder():
                 file_name=f"{first_name}_{last_name}_Resume.pdf",
                 mime="application/pdf"
             )
+
 # --------------------------------
 # THE MAIN DASHBOARD FUNCTION
 # --------------------------------
 def main():
     # --- 1. USER SIDEBAR ---
-    st.sidebar.title(f"Welcome, {st.session_state.get('first_name', 'User')}!")
+    current_user = st.session_state.get('username', 'Guest')
+    
+    st.sidebar.title(f"Welcome, {st.session_state.get('first_name', current_user)}!")
     st.sidebar.divider()
     
     st.sidebar.header("Job Controls")
@@ -279,10 +270,31 @@ def main():
             new_jobs = fetch_rss_jobs()
             st.sidebar.success(f"{new_jobs} jobs added!")
             
-    st.sidebar.divider()
-    if st.sidebar.button("Logout", use_container_width=True):
-        st.session_state['logged_in'] = False
-        st.rerun()
+    # --- SAVED JOBS DASHBOARD (Sidebar) ---
+    with st.sidebar.expander("📁 View My Saved Jobs", expanded=False):
+        saved_jobs = get_saved_jobs(current_user)
+        
+        # We extract just the links into a list so our main page buttons know what is saved!
+        saved_links = [job[2] for job in saved_jobs] 
+        
+        if not saved_jobs:
+            st.info("You haven't saved any jobs yet. Start exploring!")
+        else:
+            for i, job in enumerate(saved_jobs):
+                title, company, link = job
+                st.markdown(f"**{title}**\n*{company}*")
+                
+                # Side-by-side View and Unsave buttons in the sidebar
+                col_sb1, col_sb2 = st.columns(2)
+                with col_sb1:
+                    st.link_button("View", link, use_container_width=True)
+                with col_sb2:
+                    if st.button("❌ Unsave", key=f"unsave_sidebar_{i}", use_container_width=True):
+                        remove_saved_job(current_user, link)
+                        st.rerun() # Instantly refreshes the UI
+                st.divider()
+                
+    st.sidebar.button("Logout", use_container_width=True, on_click=lambda: st.session_state.update({'logged_in': False}))
 
     # --- 2. HEADER & TABS ---
     st.title("💼 AI Job Recommendation System")
@@ -385,7 +397,17 @@ def main():
                         unsafe_allow_html=True
                     )
 
-                    st.markdown(f"[**Apply Here**]({row['link']})")
+                    # --- APPLY & SAVE BUTTONS ---
+                    col_btn1, col_btn2 = st.columns([1, 4])
+                    with col_btn1:
+                        st.link_button("🚀 Apply Here", row['link'], type="primary")
+                    with col_btn2:
+                        if st.button("⭐ Save Job", key=f"save_{row['link']}"):
+                            success = save_job_for_user(current_user, row['link'])
+                            if success:
+                                st.toast("Job saved to your dashboard! 📁", icon="✅")
+                            else:
+                                st.toast("You already saved this job!", icon="⚠️")
         else:
             st.info("👆 Upload your resume to see job recommendations!")
 
