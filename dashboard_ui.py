@@ -45,179 +45,224 @@ def ask_gemini(prompt):
 # FEATURE: CLASSIC ATS RESUME BUILDER
 # --------------------------------
 def render_resume_builder():
-    """Renders a classic, single-column resume matching the traditional Patrick Sullivan template."""
+    """Renders a dynamic, AI-powered ATS resume builder."""
     st.markdown("---")
-    st.header("📝 Classic ATS Resume Builder")
-    st.write("This template generates a traditional, highly professional resume format favored by recruiters.")
+    st.header("📝 AI-Powered ATS Resume Builder")
+    st.write("Fill out your details below. Use the ✨ **AI Enhance** button to instantly upgrade your bullet points!")
 
-    with st.form("classic_resume_form"):
-        # 1. Contact Info
-        st.subheader("1. Header / Contact Info")
-        col1, col2 = st.columns(2)
-        name = col1.text_input("Full Name *", value="Samriti")
-        address = col2.text_input("City, State", value="Jalandhar, Punjab")
+    # --- Callbacks for AI Enhancements (Runs before the UI updates) ---
+    def enhance_exp_callback(idx):
+        st.toast("✨ AI is rewriting your experience...", icon="🤖")
+        current_text = st.session_state[f"exp_bullets_{idx}"]
+        prompt = f"You are an expert tech recruiter. Rewrite these resume bullet points to be highly professional, impactful, and ATS-friendly. Start every line with a hyphen (-). Do not include any conversational text. Here are the points:\n{current_text}"
+        st.session_state[f"exp_bullets_{idx}"] = ask_gemini(prompt)
+        st.toast("✅ Enhancement complete!", icon="✅")
+
+    def enhance_proj_callback(idx):
+        st.toast("✨ AI is rewriting your project...", icon="🤖")
+        current_text = st.session_state[f"proj_bullets_{idx}"]
+        prompt = f"You are an expert tech recruiter. Rewrite these project bullet points to highlight technical skills and impact. Start every line with a hyphen (-). Do not include conversational text. Here are the points:\n{current_text}"
+        st.session_state[f"proj_bullets_{idx}"] = ask_gemini(prompt)
+        st.toast("✅ Enhancement complete!", icon="✅")
+
+
+    # --- Initialize Session State for Dynamic Fields ---
+    if 'exp_count' not in st.session_state: st.session_state['exp_count'] = 1
+    if 'proj_count' not in st.session_state: st.session_state['proj_count'] = 1
+
+    # Default initial values for the first text areas so they aren't blank
+    if 'exp_bullets_0' not in st.session_state:
+        st.session_state['exp_bullets_0'] = "- Developed RESTful APIs using Python, improving data retrieval speeds by 15%.\n- Collaborated with frontend team to integrate backend services."
+    if 'proj_bullets_0' not in st.session_state:
+        st.session_state['proj_bullets_0'] = "- Built an interactive dashboard using Streamlit and Pandas.\n- Implemented a recommendation algorithm using Scikit-Learn."
+
+    # --- 1. Personal Details ---
+    st.subheader("1. Personal Details")
+    col1, col2 = st.columns(2)
+    first_name = col1.text_input("First Name *", value="Alex")
+    last_name = col2.text_input("Last Name *", value="Carter")
+    
+    col3, col4 = st.columns(2)
+    email = col3.text_input("Email Address *", value="alex.carter@email.com")
+    phone = col4.text_input("Phone Number", value="(555) 012-3456")
+    
+    col5, col6 = st.columns(2)
+    location = col5.text_input("City, State", value="San Francisco, CA")
+    linkedin = col6.text_input("LinkedIn / Portfolio URL", value="linkedin.com/in/alexcarter")
+
+    # --- 2. Professional Summary ---
+    st.subheader("2. Professional Summary")
+    summary = st.text_area("Short summary of your background", value="Detail-oriented Software Engineer with a strong foundation in backend development and data analysis. Passionate about building scalable applications and leveraging machine learning.")
+
+    # --- 3. Education ---
+    st.subheader("3. Education")
+    col_ed1, col_ed2 = st.columns(2)
+    degree = col_ed1.text_input("Degree / Program", value="B.S. in Computer Science")
+    school = col_ed2.text_input("University / Institution", value="University of Technology")
+    grad_date = st.text_input("Graduation Date (e.g., Expected May 2026)", value="Expected May 2026")
+
+    # --- 4. Work Experience (Dynamic) ---
+    st.subheader("4. Work Experience")
+    experiences = []
+    
+    for i in range(st.session_state['exp_count']):
+        st.markdown(f"**💼 Role {i+1}**")
+        col_e1, col_e2 = st.columns(2)
+        job_title = col_e1.text_input("Job Title", key=f"job_title_{i}", value="Software Engineering Intern" if i==0 else "")
+        company = col_e2.text_input("Company Name", key=f"company_{i}", value="TechNova Solutions" if i==0 else "")
+        job_dates = st.text_input("Dates (e.g., Jun 2025 - Aug 2025)", key=f"job_dates_{i}", value="Jun 2025 - Aug 2025" if i==0 else "")
         
-        col3, col4 = st.columns(2)
-        phone = col3.text_input("Phone", placeholder="(555) 123-4567")
-        email = col4.text_input("Email *", value="samriti@email.com")
+        st.write("Job Description (Bullet Points)")
+        c_text, c_btn = st.columns([4, 1])
+        with c_text:
+            bullets = st.text_area("Bullets", key=f"exp_bullets_{i}", label_visibility="collapsed", height=120)
+        with c_btn:
+            # Replaced the if statement with an on_click callback!
+            st.button("✨ Enhance via AI", key=f"ai_exp_{i}", on_click=enhance_exp_callback, args=(i,))
+                    
+        experiences.append({"title": job_title, "company": company, "dates": job_dates, "bullets": bullets})
+        st.markdown("---")
 
-        # 2. Mission Statement
-        st.subheader("2. Mission Statement")
-        summary = st.text_area(
-            "A brief professional summary.", 
-            value="Energetic and detail-oriented Computer Science student with a strong foundation in Machine Learning and Python programming. Looking to leverage my technical skills, passion for AI-driven systems, and data analysis expertise in a challenging engineering role."
-        )
+    if st.button("➕ Add Another Job"):
+        st.session_state['exp_count'] += 1
+        st.session_state[f"exp_bullets_{st.session_state['exp_count']-1}"] = "- Add your responsibilities here..."
+        st.rerun()
 
-        # 3. Education
-        st.subheader("3. Education")
-        st.caption("Use the '|' symbol to put the date on the right side.")
-        education = st.text_area(
-            "Education", 
-            value="DAV Institute of Engineering & Technology - Jalandhar, PB | Expected June 2027\nB.Tech in Computer Science"
-        )
+    # --- 5. Projects (Dynamic) ---
+    st.subheader("5. Key Projects")
+    projects = []
+    
+    for i in range(st.session_state['proj_count']):
+        st.markdown(f"**🚀 Project {i+1}**")
+        col_p1, col_p2 = st.columns(2)
+        proj_name = col_p1.text_input("Project Name", key=f"proj_name_{i}", value="E-Commerce Analytics Dashboard" if i==0 else "")
+        proj_role = col_p2.text_input("Your Role", key=f"proj_role_{i}", value="Lead Developer" if i==0 else "")
+        proj_dates = st.text_input("Dates", key=f"proj_dates_{i}", value="Jan 2025 - May 2025" if i==0 else "")
+        
+        st.write("Project Description (Bullet Points)")
+        c_text_p, c_btn_p = st.columns([4, 1])
+        with c_text_p:
+            p_bullets = st.text_area("Project Bullets", key=f"proj_bullets_{i}", label_visibility="collapsed", height=100)
+        with c_btn_p:
+            # Replaced the if statement with an on_click callback!
+            st.button("✨ Enhance via AI", key=f"ai_proj_{i}", on_click=enhance_proj_callback, args=(i,))
+                    
+        projects.append({"name": proj_name, "role": proj_role, "dates": proj_dates, "bullets": p_bullets})
+        st.markdown("---")
 
-        # 4. Skills (Will be formatted into 3 columns automatically!)
-        st.subheader("4. Skills")
-        st.caption("Separate skills with commas. The PDF will automatically format them into a 3-column list.")
-        skills = st.text_area(
-            "Technical Skills", 
-            value="Python, Machine Learning, Data Analytics, C++, SQL, Streamlit, Scikit-Learn, Pandas, Git"
-        )
+    if st.button("➕ Add Another Project"):
+        st.session_state['proj_count'] += 1
+        st.session_state[f"proj_bullets_{st.session_state['proj_count']-1}"] = "- Describe what you built..."
+        st.rerun()
 
-        # 5. Experience & Projects
-        st.subheader("5. Work Experience & Projects")
-        st.caption("Use the '|' symbol to put the date on the right side. Start bullet points with '-'")
-        experience = st.text_area(
-            "Experience / Projects", 
-            value="AI Job Recommendation System - Academic Project | Jan 2026 - Present\nLead Developer\n- Built a robust hybrid job matching engine using Python to accurately connect candidate resumes with relevant jobs.\n- Engineered text extraction and skill gap analysis algorithms to improve recommendation accuracy.\n- Designed an interactive UI using Streamlit and managed backend job data integration using SQLite.\n\nStudent Mentoring Platform - Academic Project | Aug 2025 - Dec 2025\nBackend Developer\n- Developed a hybrid system combining rule-based logic and Machine Learning models to create an intelligent mentoring platform.\n- Built a Student Risk Index algorithm to proactively identify and assist at-risk students.\n- Implemented automated mentor-matching algorithms to optimize pairings based on student needs.",
-            height=250
-        )
+    # --- 6. Skills ---
+    st.subheader("6. Core Skills")
+    skills = st.text_input("Technical Skills (Comma separated)", value="Python, Java, SQL, React, AWS, Docker, Machine Learning, Git")
 
-        submit_resume = st.form_submit_button("Generate Classic Resume (.pdf)")
-
+    st.markdown("---")
+    
     # --- Generate PDF Logic ---
-    if submit_resume:
-        if not name or not email:
-            st.error("⚠️ Please enter at least your Name and Email to generate the resume.")
+    if st.button("⬇️ Generate Professional PDF", type="primary", use_container_width=True):
+        if not first_name or not email:
+            st.error("⚠️ Please enter at least your First Name and Email.")
         else:
-            with st.spinner("Rendering PDF..."):
+            with st.spinner("Compiling ATS-Compliant PDF..."):
                 pdf = FPDF()
                 pdf.add_page()
                 pdf.set_auto_page_break(auto=True, margin=15)
                 
-                # Helper function for text encoding
+                # Helper function to remove weird characters (ATS safety)
                 def clean_text(text):
+                    text = text.replace("•", "-").replace("⭐", "").replace("✨", "")
                     return text.encode('latin-1', 'replace').decode('latin-1')
 
-                # --- 1. HEADER ---
-                # Name (Italicized for elegance)
-                pdf.set_font("Times", "I", 24)
-                pdf.cell(0, 10, clean_text(name), ln=True, align="C")
+                # --- HEADER ---
+                full_name = f"{first_name} {last_name}"
+                pdf.set_font("Times", "B", 24)
+                pdf.cell(0, 10, clean_text(full_name), ln=True, align="C")
                 
-                # Contact Info
-                pdf.set_font("Times", "B", 10)
-                if address:
-                    pdf.cell(0, 5, clean_text(address), ln=True, align="C")
-                if phone:
-                    pdf.cell(0, 5, clean_text(phone), ln=True, align="C")
+                contact_info = []
+                if location: contact_info.append(location)
+                if phone: contact_info.append(phone)
+                if email: contact_info.append(email)
+                if linkedin: contact_info.append(linkedin)
                 
-                # Email (Blue and underlined like a link)
-                pdf.set_text_color(0, 0, 255)
-                pdf.set_font("Times", "BU", 10)
-                pdf.cell(0, 5, clean_text(email), ln=True, align="C")
-                pdf.set_text_color(0, 0, 0) # Reset color
-                pdf.ln(5)
+                pdf.set_font("Times", "", 10)
+                pdf.cell(0, 5, clean_text(" | ".join(contact_info)), ln=True, align="C")
+                pdf.ln(4)
 
-                # --- HELPER: SECTION HEADER ---
-                def draw_section_header(title, align="L"):
+                def draw_section_header(title):
                     pdf.set_font("Times", "B", 11)
-                    pdf.cell(0, 6, title, ln=True, align=align)
-                    # Draw a horizontal line just below the text
+                    pdf.cell(0, 6, clean_text(title), ln=True, align="L")
                     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-                    pdf.ln(3)
+                    pdf.ln(2)
 
-                # --- 2. MISSION STATEMENT ---
+                # --- SUMMARY ---
                 if summary:
-                    draw_section_header("MISSION STATEMENT", align="C")
+                    draw_section_header("PROFESSIONAL SUMMARY")
                     pdf.set_font("Times", "", 10)
-                    pdf.multi_cell(0, 5, clean_text(summary), align="C")
-                    pdf.ln(5)
+                    pdf.multi_cell(0, 5, clean_text(summary))
+                    pdf.ln(4)
 
-                # --- 3. EDUCATION ---
-                if education:
+                # --- EDUCATION ---
+                if degree or school:
                     draw_section_header("EDUCATION")
-                    for line in education.split('\n'):
-                        if not line.strip(): continue
-                        if '|' in line:
-                            left, right = line.split('|', 1)
-                            pdf.set_font("Times", "B", 10)
-                            y = pdf.get_y()
-                            pdf.cell(140, 5, clean_text(left.strip()))
-                            pdf.set_xy(150, y)
-                            pdf.cell(45, 5, clean_text(right.strip()), align="R")
-                            pdf.ln(5)
-                        else:
-                            pdf.set_font("Times", "I", 10)
-                            pdf.cell(0, 5, clean_text(line.strip()), ln=True)
-                    pdf.ln(5)
-
-                # --- 4. SKILLS (3-COLUMN LAYOUT) ---
-                if skills:
-                    draw_section_header("SKILLS")
+                    pdf.set_font("Times", "B", 10)
+                    pdf.cell(0, 5, clean_text(school), ln=True)
                     pdf.set_font("Times", "", 10)
-                    skills_list = [s.strip() for s in skills.split(',')]
-                    start_y = pdf.get_y()
-                    
-                    for i, skill in enumerate(skills_list):
-                        if not skill: continue
-                        col = i % 3
-                        row = i // 3
-                        x_pos = 15 + (col * 60)
-                        y_pos = start_y + (row * 5)
-                        pdf.set_xy(x_pos, y_pos)
-                        pdf.cell(60, 5, clean_text(f"• {skill}"))
-                    
-                    # Move Y down past the columns
-                    total_rows = (len(skills_list) - 1) // 3 + 1
-                    pdf.set_y(start_y + (total_rows * 5) + 5)
+                    pdf.cell(0, 5, clean_text(f"{degree} | {grad_date}"), ln=True)
+                    pdf.ln(4)
 
-                # --- 5. WORK EXPERIENCE ---
-                if experience:
-                    draw_section_header("WORK EXPERIENCE")
-                    for line in experience.split('\n'):
-                        if not line.strip():
-                            pdf.ln(2)
-                            continue
+                # --- EXPERIENCE (Dynamic Loop) ---
+                draw_section_header("WORK EXPERIENCE")
+                for exp in experiences:
+                    if exp["title"] or exp["company"]:
+                        pdf.set_font("Times", "B", 10)
+                        pdf.cell(0, 5, clean_text(exp["title"]), ln=True)
+                        pdf.set_font("Times", "I", 10)
+                        pdf.cell(0, 5, clean_text(f"{exp['company']} | {exp['dates']}"), ln=True)
                         
-                        if '|' in line:
-                            # Company & Date
-                            left, right = line.split('|', 1)
-                            pdf.set_font("Times", "B", 10)
-                            y = pdf.get_y()
-                            pdf.cell(140, 5, clean_text(left.strip()))
-                            pdf.set_xy(150, y)
-                            pdf.cell(45, 5, clean_text(right.strip()), align="R")
-                            pdf.ln(5)
-                        elif line.strip().startswith('-') or line.strip().startswith('•'):
-                            # Bullet points
-                            pdf.set_font("Times", "", 10)
-                            pdf.set_x(15) # Indent bullets slightly
-                            bullet_text = clean_text(f"• {line.strip()[1:].strip()}")
-                            pdf.multi_cell(0, 5, bullet_text)
-                        else:
-                            # Job Title (Italics)
-                            pdf.set_font("Times", "I", 10)
-                            pdf.cell(0, 5, clean_text(line.strip()), ln=True)
+                        pdf.set_font("Times", "", 10)
+                        for line in exp["bullets"].split('\n'):
+                            if line.strip():
+                                bullet = line.strip() if line.strip().startswith("-") else f"- {line.strip()}"
+                                pdf.set_x(15) 
+                                pdf.multi_cell(0, 5, clean_text(bullet))
+                        pdf.ln(2)
+                pdf.ln(2)
+
+                # --- PROJECTS (Dynamic Loop) ---
+                draw_section_header("PROJECTS")
+                for proj in projects:
+                    if proj["name"]:
+                        pdf.set_font("Times", "B", 10)
+                        pdf.cell(0, 5, clean_text(proj["name"]), ln=True)
+                        pdf.set_font("Times", "I", 10)
+                        pdf.cell(0, 5, clean_text(f"{proj['role']} | {proj['dates']}"), ln=True)
+                        
+                        pdf.set_font("Times", "", 10)
+                        for line in proj["bullets"].split('\n'):
+                            if line.strip():
+                                bullet = line.strip() if line.strip().startswith("-") else f"- {line.strip()}"
+                                pdf.set_x(15)
+                                pdf.multi_cell(0, 5, clean_text(bullet))
+                        pdf.ln(2)
+                pdf.ln(2)
+
+                # --- SKILLS ---
+                if skills:
+                    draw_section_header("TECHNICAL SKILLS")
+                    pdf.set_font("Times", "", 10)
+                    skills_list = [s.strip() for s in skills.split(',') if s.strip()]
+                    pdf.multi_cell(0, 5, clean_text(", ".join(skills_list)))
 
                 pdf_bytes = pdf.output()
 
-            st.success("✨ Classic PDF Resume Generated Successfully!")
-            
-            # Download Button
+            st.success("✨ Professional PDF Resume Generated Successfully!")
             st.download_button(
-                label="⬇️ Download Professional Resume (.pdf)",
+                label="📥 Click Here to Download PDF",
                 data=bytes(pdf_bytes),
-                file_name=f"{name.replace(' ', '_')}_Resume.pdf",
+                file_name=f"{first_name}_{last_name}_Resume.pdf",
                 mime="application/pdf"
             )
 # --------------------------------
