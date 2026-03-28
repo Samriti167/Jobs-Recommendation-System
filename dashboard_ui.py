@@ -432,6 +432,7 @@ def render_resume_builder():
                 pdf_bytes = pdf.output()
 
             st.success("✨ Professional PDF Resume Generated Successfully!")
+            st.session_state['resume_count'] = st.session_state.get('resume_count', 0) + 1
             st.download_button(
                 label="📥 Click Here to Download PDF",
                 data=bytes(pdf_bytes),
@@ -444,16 +445,34 @@ def render_resume_builder():
 # ==========================================
 
 def render_home():
-    """Renders the landing dashboard with quick stats."""
+    """Renders the landing dashboard with dynamic stats."""
     st.title("🏠 Career Command Center")
     st.markdown("<p style='color: #6B7280; font-size: 1.1rem; margin-top: -10px;'>Welcome to your personal workspace. Track your progress, build your resume, and let AI find your next big opportunity.</p>", unsafe_allow_html=True)
     st.markdown("---")
     
-    # Mock Stats for a premium feel
+    # --- 1. Get real active jobs count from database ---
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM jobs")
+        job_count = c.fetchone()[0]
+        conn.close()
+    except:
+        job_count = 0
+        
+    # --- 2. Get highest match score from session state ---
+    highest_match = st.session_state.get('highest_match', 0)
+    match_display = f"{highest_match}%" if highest_match > 0 else "N/A"
+    match_delta = "Top Match" if highest_match >= 75 else ("Run a match!" if highest_match == 0 else "Needs Improvement")
+    
+    # --- 3. Get resume count from session state ---
+    resume_count = st.session_state.get('resume_count', 0)
+    
+    # Render the dynamic stats!
     col1, col2, col3 = st.columns(3)
-    col1.metric(label="Active Jobs Scanned", value="1,245", delta="+12 today")
-    col2.metric(label="Profile Match Strength", value="85%", delta="High")
-    col3.metric(label="Resumes Generated", value="1", delta="Ready")
+    col1.metric(label="Active Jobs Scanned", value=f"{job_count:,}", delta="Live Database")
+    col2.metric(label="Profile Match Strength", value=match_display, delta=match_delta)
+    col3.metric(label="Resumes Generated", value=str(resume_count), delta="This Session")
     
     st.markdown("---")
     st.subheader("🚀 Quick Actions")
@@ -498,7 +517,10 @@ def render_job_match():
 
             df["match_score"] = scores
             df = df.sort_values(by="match_score", ascending=False)
-            
+            # --- NEW: Save the highest score to session state for the Home page ---
+            if not df.empty:
+                top_raw_score = df["match_score"].iloc[0]
+                st.session_state['highest_match'] = int(max(0.0, min(1.0, float(top_raw_score))) * 100)
             loading_placeholder.empty() # Clear loading animation instantly
 
             st.markdown("---")
