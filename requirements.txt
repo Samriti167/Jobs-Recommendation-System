@@ -12,3 +12,5 @@ apify-client
 python-dotenv
 google-generativeai
 fpdf2
+plotly
+streamlit-lottie
