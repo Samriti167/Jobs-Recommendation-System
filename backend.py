@@ -36,14 +36,6 @@ def init_db():
     )
     """)
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS saved_jobs(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT,
-        job_link TEXT,
-        UNIQUE(username, job_link)
-    )
-    """)
     conn.commit()
     conn.close()
 

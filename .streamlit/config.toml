@@ -1,6 +1,0 @@
-[theme]
-primaryColor = "#0066CC"          # Professional tech blue for buttons 
-backgroundColor = "#F8F9FA"       # Soft off-white for the main background
-secondaryBackgroundColor = "#FFFFFF" # Crisp white for the sidebar and containers
-textColor = "#333333"             # Dark slate gray for highly readable text
-font = "sans serif"
