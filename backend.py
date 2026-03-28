@@ -110,29 +110,6 @@ def insert_dummy_jobs():
     conn.close()
     return count
 
-
-def insert_dummy_jobs():
-    """Fallback function to inject test data."""
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    
-    dummy_jobs = [
-        ("Python Backend Developer", "TechCorp", "Looking for a Python developer with Django, API, and SQL experience.", "http://test.com/python-dev", "Manual Test Data"),
-        ("Machine Learning Engineer", "AI Startup", "Must know Deep Learning, NLP, Python, and Vector Databases like FAISS.", "http://test.com/ml-engineer", "Manual Test Data"),
-        ("React Frontend Developer", "WebStudio", "We need a frontend developer skilled in React, CSS, JavaScript and HTML.", "http://test.com/react-dev", "Manual Test Data")
-    ]
-    
-    count = 0
-    for job in dummy_jobs:
-        c.execute("SELECT id FROM jobs WHERE link = ?", (job[3],))
-        if c.fetchone() is None:
-            c.execute("INSERT INTO jobs (title, company, description, link, source) VALUES (?, ?, ?, ?, ?)", job)
-            count += 1
-            
-    conn.commit()
-    conn.close()
-    return count
-
 def get_all_jobs():
     """Returns all jobs as a Pandas DataFrame."""
     conn = sqlite3.connect(DB_NAME)
