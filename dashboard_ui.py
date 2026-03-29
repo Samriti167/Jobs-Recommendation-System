@@ -22,7 +22,7 @@ def load_lottieurl(url: str):
         return None
 
 # Import your local modules
-from backend import init_db, fetch_rss_jobs, DB_NAME, save_job_for_user, get_saved_jobs, remove_saved_job
+from backend import init_db, fetch_rss_jobs, DB_NAME, save_jobs_for_users, get_saved_jobs, remove_saved_job
 from ai_engine import extract_text_from_pdf, clean_text, calculate_similarity
 
 def format_raw_job_description(raw_html):
@@ -488,143 +488,167 @@ def render_job_match():
     st.markdown("<p style='color: #6B7280; font-size: 1.1rem; margin-top: -10px;'>Upload your latest resume below. Our neural network will instantly analyze your skills and compare them against live job postings.</p>", unsafe_allow_html=True)
     st.markdown("---")
     
+    # --- 1. INITIALIZE SESSION STATE (The "Backpack") ---
+    if 'resume_processed' not in st.session_state:
+        st.session_state['resume_processed'] = False
+    if 'top_matches' not in st.session_state:
+        st.session_state['top_matches'] = None
+    if 'current_file_name' not in st.session_state:
+        st.session_state['current_file_name'] = ""
+    if 'resume_text' not in st.session_state:
+        st.session_state['resume_text'] = ""
+
     uploaded_file = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
 
-    if uploaded_file:
-        loading_placeholder = st.empty()
-        with loading_placeholder.container():
-            lottie_anim = load_lottieurl("https://assets2.lottiefiles.com/packages/lf20_bhebjzpu.json")
-            if lottie_anim:
-                st_lottie(lottie_anim, height=250, key="loading_ai")
-            st.markdown("<h4 style='text-align: center; color: #0066CC;'>Calculating Semantic Match Scores...</h4>", unsafe_allow_html=True)
-            
-            # Fast Backend Processing (No Gemini API calls here!)
-            raw_resume_text = extract_text_from_pdf(uploaded_file)
-            resume_text = clean_text(raw_resume_text)
-
-            conn = sqlite3.connect(DB_NAME)
-            df = pd.read_sql_query("SELECT title, company, location, description, link, source FROM jobs", conn)
-            conn.close()
-
-            df = df.drop_duplicates(subset="link")
-
-        if df.empty:
-            loading_placeholder.empty()
-            st.warning("No jobs available in the database. Please fetch jobs first using the sidebar.")
-        else:
-            job_descriptions = (df["title"] + " " + df["description"]).apply(clean_text).tolist()
-            scores = calculate_similarity(resume_text, job_descriptions)
-
-            df["match_score"] = scores
-            df = df.sort_values(by="match_score", ascending=False)
-            # --- NEW: Save the highest score to session state for the Home page ---
-            if not df.empty:
-                top_raw_score = df["match_score"].iloc[0]
-                st.session_state['highest_match'] = int(max(0.0, min(1.0, float(top_raw_score))) * 100)
-            loading_placeholder.empty() # Clear loading animation instantly
-
-            st.markdown("---")
-            st.subheader("🎯 Top Curated Matches")
-
-            top_jobs = df.head(5)
-
-            def clean_html(text):
-                clean = re.compile('<.*?>')
-                return re.sub(clean, '', text)
-
-            # --- RENDER COMPACT JOB CARDS ---
-            for idx, row in top_jobs.reset_index().iterrows():
+    # --- 2. PROCESS ONLY IF IT'S A NEW FILE ---
+    if uploaded_file is not None:
+        # Check if this is a brand new upload
+        if st.session_state['current_file_name'] != uploaded_file.name:
+            loading_placeholder = st.empty()
+            with loading_placeholder.container():
+                lottie_anim = load_lottieurl("https://assets2.lottiefiles.com/packages/lf20_bhebjzpu.json")
+                if lottie_anim:
+                    st_lottie(lottie_anim, height=250, key="loading_ai")
+                st.markdown("<h4 style='text-align: center; color: #0066CC;'>Calculating Semantic Match Scores...</h4>", unsafe_allow_html=True)
                 
-                # Create a visual boundary card using Streamlit's container
-                with st.container(border=True):
-                    card_col1, card_col2 = st.columns([3, 1])
-                    
-                    with card_col1:
-                        st.subheader(row["title"])
-                        st.markdown(f"**🏢 {row['company']}** &nbsp; | &nbsp; **📍 {row['location']}** &nbsp; | &nbsp; 🌐 {row['source']}")
-                    
-                    with card_col2:
-                        raw_score = row['match_score']
-                        safe_score = max(0.0, min(1.0, float(raw_score)))
-                        score_percentage = int(safe_score * 100)
-                        
-                        if score_percentage >= 80: color = "#10B981"
-                        elif score_percentage >= 60: color = "#F59E0B"
-                        else: color = "#EF4444"
-                            
-                        fig = go.Figure(go.Indicator(
-                            mode = "gauge+number",
-                            value = score_percentage,
-                            number = {'suffix': "%", 'font': {'color': color, 'size': 32, 'family': "Inter"}},
-                            domain = {'x': [0, 1], 'y': [0, 1]},
-                            gauge = {
-                                'axis': {'range': [None, 100], 'visible': False},
-                                'bar': {'color': color, 'thickness': 0.8},
-                                'bgcolor': "#F3F4F6",
-                                'borderwidth': 0,
-                            }
-                        ))
-                        fig.update_layout(height=120, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)")
-                        st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, key=f"gauge_chart_{idx}")
+                # Extract text and clean it
+                raw_resume_text = extract_text_from_pdf(uploaded_file)
+                resume_text = clean_text(raw_resume_text)
 
-                    # --- COMPACT EXPANDER FOR DETAILS ---
-                    with st.expander("📄 View Job Description & AI Insights"):
-                        # 1. Clean the text ONLY for the AI to read
-                        ai_clean_description = clean_html(row["description"])
-                        
-                        tab1, tab2, tab3 = st.tabs(["Job Description", "⚠️ AI Skill Gap", "🗺️ AI Roadmap"])
-                        
-                        with tab1:
-                            beautiful_desc = format_raw_job_description(row["description"])
-                            st.markdown(beautiful_desc)
-                            
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            
-                            # --- COMBINED APPLY & SAVE BUTTONS ---
-                            col_btn1, col_btn2 = st.columns([2, 2])
-                            with col_btn1:
-                                st.markdown(f"<a href='{row['link']}' target='_blank'><button style='background-color: #0066CC; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%;'>🔗 Apply on Original Site</button></a>", unsafe_allow_html=True)
-                            with col_btn2:
-                                # We grab the username from session state just like your friend did
-                                current_user = st.session_state.get('username', 'Guest')
-                                if st.button("⭐ Save Job to Profile", key=f"save_btn_{idx}", use_container_width=True):
-                                    success = save_job_for_user(current_user, row['link'])
-                                    if success:
-                                        st.toast("Job saved to your dashboard! 📁", icon="✅")
-                                    else:
-                                        st.toast("You already saved this job!", icon="⚠️")
-                        
-                        with tab2:
-                            st.info("💡 Want to know what you're missing? Ask AI to compare your resume to this specific job.")
-                            if st.button("Generate Skill Gap Analysis ✨", key=f"gap_btn_{idx}"):
-                                with st.spinner(f"AI is analyzing skill gaps for {row['company']}..."):
-                                    prompt = f"You are an expert career coach. Compare the following resume to the specific job description. List ONLY the specific skills, tools, or experience required by the job that are MISSING from the resume. Keep it very brief and use bullet points. If there are no missing skills, say 'Strong match! No major missing skills.'\nJob Description: {ai_clean_description}\nResume: {resume_text}"
-                                    st.session_state[f"gap_result_{idx}"] = ask_gemini(prompt)
-                            
-                            if f"gap_result_{idx}" in st.session_state:
-                                st.markdown(f"""
-                                <div style='background-color: rgba(254, 242, 242, 0.8); padding: 15px; border-radius: 8px; border-left: 5px solid #EF4444; margin-top: 10px;'>
-                                    <h5 style='color: #991B1B; margin-top: 0px;'>⚠️ Missing Skills & Requirements</h5>
-                                    <span style='color: #7F1D1D;'>{st.session_state[f"gap_result_{idx}"]}</span>
-                                </div>
-                                """, unsafe_allow_html=True)
+                conn = sqlite3.connect(DB_NAME)
+                df = pd.read_sql_query("SELECT title, company, location, description, link, source FROM jobs", conn)
+                conn.close()
 
-                        with tab3:
-                            st.info("💡 Need a plan? Ask AI to build a custom study guide based on your skill gaps.")
-                            if st.button("Generate Learning Roadmap ✨", key=f"road_btn_{idx}"):
-                                skills_to_learn = st.session_state.get(f"gap_result_{idx}", "the skills required for this job that I am currently missing.")
-                                with st.spinner(f"AI is building a learning roadmap..."):
-                                    roadmap_prompt = f"You are a senior technical mentor. A candidate is missing the following skills for a job: {skills_to_learn}. Create a very brief, step-by-step learning roadmap. Tell the candidate the logical order they should learn these missing skills. Keep it concise, actionable, and use a numbered list."
-                                    st.session_state[f"road_result_{idx}"] = ask_gemini(roadmap_prompt)
-                            
-                            if f"road_result_{idx}" in st.session_state:
-                                st.markdown(f"""
-                                <div style='background-color: rgba(240, 253, 244, 0.8); padding: 15px; border-radius: 8px; border-left: 5px solid #10B981; margin-top: 10px;'>
-                                    <h5 style='color: #065F46; margin-top: 0px;'>🗺️ Recommended Learning Roadmap</h5>
-                                    <span style='color: #064E3B;'>{st.session_state[f"road_result_{idx}"]}</span>
-                                </div>
-                                """, unsafe_allow_html=True)
-                st.markdown("<br>", unsafe_allow_html=True) 
+                df = df.drop_duplicates(subset="link")
+
+                if df.empty:
+                    loading_placeholder.empty()
+                    st.warning("No jobs available in the database. Please fetch jobs first using the sidebar.")
+                else:
+                    # Calculate Matches
+                    job_descriptions = (df["title"] + " " + df["description"]).apply(clean_text).tolist()
+                    scores = calculate_similarity(resume_text, job_descriptions)
+
+                    df["match_score"] = scores
+                    df = df.sort_values(by="match_score", ascending=False)
+                    
+                    # Update highest match score for the Home page
+                    if not df.empty:
+                        top_raw_score = df["match_score"].iloc[0]
+                        st.session_state['highest_match'] = int(max(0.0, min(1.0, float(top_raw_score))) * 100)
+                    
+                    # Save everything to Session State!
+                    top_jobs = df.head(5).drop_duplicates(subset=['link'])
+                    st.session_state['top_matches'] = top_jobs
+                    st.session_state['resume_text'] = resume_text
+                    st.session_state['resume_processed'] = True
+                    st.session_state['current_file_name'] = uploaded_file.name
+                    
+                loading_placeholder.empty() # Clear loading animation instantly
+
+    # --- 3. DISPLAY SAVED RESULTS ---
+    # This runs even if the file uploader resets, as long as we saved the data!
+    if st.session_state['resume_processed'] and st.session_state['top_matches'] is not None:
+        st.markdown("---")
+        st.subheader("🎯 Top Curated Matches")
+
+        # Pull the saved data out of the backpack
+        top_jobs = st.session_state['top_matches']
+        resume_text = st.session_state['resume_text']
+
+        def clean_html(text):
+            clean = re.compile('<.*?>')
+            return re.sub(clean, '', text)
+
+        # --- RENDER COMPACT JOB CARDS ---
+        for idx, row in top_jobs.reset_index().iterrows():
+            
+            with st.container(border=True):
+                card_col1, card_col2 = st.columns([3, 1])
+                
+                with card_col1:
+                    st.subheader(row["title"])
+                    st.markdown(f"**🏢 {row['company']}** &nbsp; | &nbsp; **📍 {row['location']}** &nbsp; | &nbsp; 🌐 {row['source']}")
+                
+                with card_col2:
+                    raw_score = row['match_score']
+                    safe_score = max(0.0, min(1.0, float(raw_score)))
+                    score_percentage = int(safe_score * 100)
+                    
+                    if score_percentage >= 80: color = "#10B981"
+                    elif score_percentage >= 60: color = "#F59E0B"
+                    else: color = "#EF4444"
+                        
+                    fig = go.Figure(go.Indicator(
+                        mode = "gauge+number",
+                        value = score_percentage,
+                        number = {'suffix': "%", 'font': {'color': color, 'size': 32, 'family': "Inter"}},
+                        domain = {'x': [0, 1], 'y': [0, 1]},
+                        gauge = {
+                            'axis': {'range': [None, 100], 'visible': False},
+                            'bar': {'color': color, 'thickness': 0.8},
+                            'bgcolor': "#F3F4F6",
+                            'borderwidth': 0,
+                        }
+                    ))
+                    fig.update_layout(height=120, margin=dict(l=10, r=10, t=10, b=10), paper_bgcolor="rgba(0,0,0,0)")
+                    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False}, key=f"gauge_chart_{idx}")
+
+                # --- COMPACT EXPANDER FOR DETAILS ---
+                with st.expander("📄 View Job Description & AI Insights"):
+                    ai_clean_description = clean_html(row["description"])
+                    
+                    tab1, tab2, tab3 = st.tabs(["Job Description", "⚠️ AI Skill Gap", "🗺️ AI Roadmap"])
+                    
+                    with tab1:
+                        beautiful_desc = format_raw_job_description(row["description"])
+                        st.markdown(beautiful_desc)
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        
+                        col_btn1, col_btn2 = st.columns([2, 2])
+                        with col_btn1:
+                            st.markdown(f"<a href='{row['link']}' target='_blank'><button style='background-color: #0066CC; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%;'>🔗 Apply on Original Site</button></a>", unsafe_allow_html=True)
+                        with col_btn2:
+                            current_user = st.session_state.get('username', 'Guest')
+                            if st.button("⭐ Save Job to Profile", key=f"save_btn_{idx}", use_container_width=True):
+                                success = save_jobs_for_users(current_user, row['title'], row['company'], row['link'])
+                                if success:
+                                    st.toast("Job saved to your dashboard! 📁", icon="✅")
+                                    st.rerun() 
+                                else:
+                                    st.toast("You already saved this job!", icon="⚠️")
+                    
+                    with tab2:
+                        st.info("💡 Want to know what you're missing? Ask AI to compare your resume to this specific job.")
+                        if st.button("Generate Skill Gap Analysis ✨", key=f"gap_btn_{idx}"):
+                            with st.spinner(f"AI is analyzing skill gaps for {row['company']}..."):
+                                prompt = f"You are an expert career coach. Compare the following resume to the specific job description. List ONLY the specific skills, tools, or experience required by the job that are MISSING from the resume. Keep it very brief and use bullet points. If there are no missing skills, say 'Strong match! No major missing skills.'\nJob Description: {ai_clean_description}\nResume: {resume_text}"
+                                st.session_state[f"gap_result_{idx}"] = ask_gemini(prompt)
+                        
+                        if f"gap_result_{idx}" in st.session_state:
+                            st.markdown(f"""
+                            <div style='background-color: rgba(254, 242, 242, 0.8); padding: 15px; border-radius: 8px; border-left: 5px solid #EF4444; margin-top: 10px;'>
+                                <h5 style='color: #991B1B; margin-top: 0px;'>⚠️ Missing Skills & Requirements</h5>
+                                <span style='color: #7F1D1D;'>{st.session_state[f"gap_result_{idx}"]}</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                    with tab3:
+                        st.info("💡 Need a plan? Ask AI to build a custom study guide based on your skill gaps.")
+                        if st.button("Generate Learning Roadmap ✨", key=f"road_btn_{idx}"):
+                            skills_to_learn = st.session_state.get(f"gap_result_{idx}", "the skills required for this job that I am currently missing.")
+                            with st.spinner(f"AI is building a learning roadmap..."):
+                                roadmap_prompt = f"You are a senior technical mentor. A candidate is missing the following skills for a job: {skills_to_learn}. Create a very brief, step-by-step learning roadmap. Tell the candidate the logical order they should learn these missing skills. Keep it concise, actionable, and use a numbered list."
+                                st.session_state[f"road_result_{idx}"] = ask_gemini(roadmap_prompt)
+                        
+                        if f"road_result_{idx}" in st.session_state:
+                            st.markdown(f"""
+                            <div style='background-color: rgba(240, 253, 244, 0.8); padding: 15px; border-radius: 8px; border-left: 5px solid #10B981; margin-top: 10px;'>
+                                <h5 style='color: #065F46; margin-top: 0px;'>🗺️ Recommended Learning Roadmap</h5>
+                                <span style='color: #064E3B;'>{st.session_state[f"road_result_{idx}"]}</span>
+                            </div>
+                            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True) 
     else:
         st.info("👆 Upload your resume to initiate the matching process.")
 
@@ -652,23 +676,26 @@ def main():
             
     # --- SAVED JOBS DASHBOARD (Sidebar) ---
     with st.sidebar.expander("📁 View My Saved Jobs", expanded=False):
-        saved_jobs = get_saved_jobs(current_user)
+        saved_jobs_df = get_saved_jobs(current_user)
         
-        if not saved_jobs:
+        # Make sure the dataframe actually has data
+        if saved_jobs_df.empty:
             st.info("You haven't saved any jobs yet. Start exploring!")
         else:
-            for i, job in enumerate(saved_jobs):
-                title, company, link = job
+            for i, row in saved_jobs_df.iterrows():
+                link = row['job_link']
+                title = row.get('title', 'Saved Job') 
+                company = row.get('company', 'View Details')
+                
                 st.markdown(f"**{title}**\n*{company}*")
                 
-                # Side-by-side View and Unsave buttons
                 col_sb1, col_sb2 = st.columns(2)
                 with col_sb1:
                     st.link_button("View", link, use_container_width=True)
                 with col_sb2:
                     if st.button("❌ Unsave", key=f"unsave_sidebar_{i}", use_container_width=True):
                         remove_saved_job(current_user, link)
-                        st.rerun() # Instantly refreshes the UI
+                        st.rerun() 
                 st.divider()
 
     st.sidebar.divider()

@@ -9,6 +9,8 @@ if not os.path.exists(DB_DIR):
     os.makedirs(DB_DIR)
     
 DB_NAME = os.path.join(DB_DIR, "jobs_database.db")
+# --- NEW: A dedicated database just for saved jobs to prevent conflicts ---
+SAVED_DB_NAME = os.path.join(DB_DIR, "saved_jobs_v2.db") 
 
 def init_db():
     """Initializes the database with the new LOCATION column."""
@@ -26,16 +28,6 @@ def init_db():
             date_posted DATE DEFAULT CURRENT_DATE
         )
     ''')
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS saved_jobs(
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT,
-        job_link TEXT,
-        UNIQUE(username, job_link)
-    )
-    """)
-
     conn.commit()
     conn.close()
 
@@ -63,14 +55,9 @@ def fetch_rss_jobs():
                     c.execute("SELECT id FROM jobs WHERE link = ?", (entry.link,))
                     if c.fetchone() is None:
                         desc = entry.title + " " + getattr(entry, 'summary', '')
-                        
-                        # Extract location safely (Default to "Remote / Global" if not found)
                         location = getattr(entry, 'location', 'Remote / Global')
-                        
-                        # We also insert a generic company name since RSS sometimes hides it
                         company_name = "Tech Company" 
                         
-                        # INSERT including the new location variable
                         c.execute("INSERT INTO jobs (title, company, location, description, link, source) VALUES (?, ?, ?, ?, ?, ?)",
                                   (entry.title, company_name, location, desc, entry.link, "RSS Feed"))
                         total_added += 1
@@ -92,7 +79,6 @@ def insert_dummy_jobs():
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     
-    # Notice the new "Location" string added to these dummy jobs (e.g., "New York, NY")
     dummy_jobs = [
         ("Python Backend Developer", "TechCorp", "New York, NY", "Looking for a Python developer with Django, API, and SQL experience.", "http://test.com/python-dev", "Manual Test Data"),
         ("Machine Learning Engineer", "AI Startup", "San Francisco, CA", "Must know Deep Learning, NLP, Python, and Vector Databases like FAISS.", "http://test.com/ml-engineer", "Manual Test Data"),
@@ -125,38 +111,61 @@ def clear_database():
     conn.commit()
     conn.close()
 
-def save_job_for_user(username, job_link):
-    """Saves a job link to a user's profile."""
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    try:
-        c.execute("INSERT INTO saved_jobs (username, job_link) VALUES (?, ?)", (username, job_link))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False # Job was already saved
-    finally:
+# --- THE UPDATED SAVED JOBS FUNCTIONS ---
+def save_jobs_for_users(current_user, job_title, company_name, job_link):
+    # Using the NEW database file name
+    conn = sqlite3.connect(SAVED_DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS saved_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT,
+            title TEXT,
+            company TEXT,
+            job_link TEXT
+        )
+    ''')
+
+    cursor.execute('''
+        SELECT 1 FROM saved_jobs 
+        WHERE user_id = ? AND job_link = ?
+    ''', (current_user, job_link))
+    
+    if cursor.fetchone():
         conn.close()
+        return False
 
-def get_saved_jobs(username):
-    """Fetches all saved jobs for a specific user."""
-    conn = sqlite3.connect(DB_NAME)
-    c = conn.cursor()
-    c.execute("""
-        SELECT jobs.title, jobs.company, jobs.link 
-        FROM jobs 
-        JOIN saved_jobs ON jobs.link = saved_jobs.job_link 
-        WHERE saved_jobs.username = ?
-    """, (username,))
-    saved = c.fetchall()
+    cursor.execute('''
+        INSERT INTO saved_jobs (user_id, title, company, job_link)
+        VALUES (?, ?, ?, ?)
+    ''', (current_user, job_title, company_name, job_link))
+
+    conn.commit()
     conn.close()
-    return saved
+    return True
 
-def remove_saved_job(username, job_link):
+def get_saved_jobs(current_user):
+    # Using the NEW database file name
+    conn = sqlite3.connect(SAVED_DB_NAME)
+    
+    try:
+        query = "SELECT title, company, job_link FROM saved_jobs WHERE user_id = ?"
+        df = pd.read_sql_query(query, conn, params=(current_user,))
+    except Exception:
+        # If the table doesn't exist yet, return an empty dataframe
+        df = pd.DataFrame(columns=['title', 'company', 'job_link'])
+        
+    conn.close()
+    return df
+
+def remove_saved_job(current_user, job_link):
     """Removes a saved job from a user's profile."""
-    conn = sqlite3.connect(DB_NAME)
+    # Using the NEW database file name
+    conn = sqlite3.connect(SAVED_DB_NAME)
     c = conn.cursor()
-    # Delete the specific job for the specific user
-    c.execute("DELETE FROM saved_jobs WHERE username = ? AND job_link = ?", (username, job_link))
+    
+    # Updated to match the user_id column name
+    c.execute("DELETE FROM saved_jobs WHERE user_id = ? AND job_link = ?", (current_user, job_link))
     conn.commit()
     conn.close()
