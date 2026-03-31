@@ -4,7 +4,7 @@ import time
 import re
 
 # 1. Page Configuration 
-st.set_page_config(page_title="Job Matcher Pro", page_icon="💼", layout="wide")
+st.set_page_config(page_title="INTELLIGENT RESUME SCREENING AND REAL TIME JOB RECOMMENDATION SYSTEM", page_icon="💼", layout="wide")
 
 # 2. Premium CSS Overhaul: Typography, Fluid Animations & Dot Grid Background
 def local_css():
@@ -121,14 +121,15 @@ def main():
         left_col, right_col = st.columns([1.2, 1], gap="large")
         
         with left_col:
-            st.title("💼 Job Matcher Pro")
-            st.markdown("### Intelligent Resume Screening & Real-Time Job Recommendation")
-            st.write("Join thousands of professionals landing their dream jobs through AI-driven resume matching.")
-            
-            st.markdown("#### Why use Job Matcher Pro?")
-            st.markdown("✅ **Precision Matching:** Our ML model analyzes your exact skill set.")
-            st.markdown("✅ **Instant Feedback:** See how your resume stacks up immediately.")
-            st.markdown("✅ **Privacy First:** Your data is strictly secured and never shared.")
+            st.header("💼 Intelligent Resume Screening & Real-Time Job Recommendation System")
+            st.write("Welcome to your personal workspace. Let AI enhance your resume, find your skill gaps, and match you with your next big opportunity.")
+    
+            st.markdown("#### Platform Features")
+            st.markdown("📝 **ATS Resume Builder:** Generate professional, ATS-compliant PDFs and use AI to instantly rewrite your experience bullets.")
+            st.markdown("🔍 **Semantic Job Matching:** Upload your resume and let our neural network calculate real-time match scores against live job postings.")
+            st.markdown("🧠 **AI Career Insights:** Instantly identify missing skills for specific roles and generate custom step-by-step learning roadmaps.")
+            st.markdown("📁 **Track Your Progress:** Save top matches to your profile and monitor your live job feed.")
+    
             st.write("<br><br><br>", unsafe_allow_html=True)
 
         with right_col:
@@ -138,8 +139,7 @@ def main():
             if choice == "Login":
                 st.subheader("Welcome Back")
                 
-                st.button("Continue with Google 🌐")
-                st.button("Continue with LinkedIn 💼")
+                
                 st.markdown("<div style='text-align: center; color: #6B7280; margin: 15px 0; font-size: 0.85rem; font-weight: 600;'>OR LOGIN WITH EMAIL</div>", unsafe_allow_html=True)
 
                 with st.form("login_form"):

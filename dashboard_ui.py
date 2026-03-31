@@ -254,27 +254,27 @@ def render_resume_builder():
     # --- 1. Personal Details ---
     st.subheader("1. Personal Details")
     col1, col2 = st.columns(2)
-    first_name = col1.text_input("First Name *", value="Samriti")
+    first_name = col1.text_input("First Name *", placeholder="Alex")
     last_name = col2.text_input("Last Name *", value="")
     
     col3, col4 = st.columns(2)
-    email = col3.text_input("Email Address *", value="samriti@email.com")
-    phone = col4.text_input("Phone Number", value="(555) 012-3456")
+    email = col3.text_input("Email Address *", placeholder="ALEX@email.com")
+    phone = col4.text_input("Phone Number", placeholder="(555) 012-3456")
     
     col5, col6 = st.columns(2)
-    location = col5.text_input("City, State", value="Jalandhar, Punjab")
-    linkedin = col6.text_input("LinkedIn / Portfolio URL", value="linkedin.com/in/samriti")
+    location = col5.text_input("City, State", placeholder="New York , NY")
+    linkedin = col6.text_input("LinkedIn / Portfolio URL", placeholder="linkedin.com/in/ALEX")
 
     # --- 2. Professional Summary ---
     st.subheader("2. Professional Summary")
-    summary = st.text_area("Short summary of your background", value="Detail-oriented Software Engineer with a strong foundation in backend development and data analysis. Passionate about building scalable applications and leveraging machine learning.")
+    summary = st.text_area("Short summary of your background", placeholder="Detail-oriented Software Engineer with a strong foundation in backend development and data analysis. Passionate about building scalable applications and leveraging machine learning.")
 
     # --- 3. Education ---
     st.subheader("3. Education")
     col_ed1, col_ed2 = st.columns(2)
-    degree = col_ed1.text_input("Degree / Program", value="B.Tech in Computer Science")
-    school = col_ed2.text_input("University / Institution", value="DAV Institute of Engineering & Technology")
-    grad_date = st.text_input("Graduation Date (e.g., Expected May 2026)", value="Expected 2027")
+    degree = col_ed1.text_input("Degree / Program", placeholder="B.Tech in Computer Science")
+    school = col_ed2.text_input("University / Institution", placeholder="DAV Institute of Engineering & Technology")
+    grad_date = st.text_input("Graduation Date (e.g., Expected May 2026)", placeholder="Expected 2027")
 
     # --- 4. Work Experience (Dynamic) ---
     st.subheader("4. Work Experience")
@@ -283,9 +283,9 @@ def render_resume_builder():
     for i in range(st.session_state['exp_count']):
         st.markdown(f"**💼 Role {i+1}**")
         col_e1, col_e2 = st.columns(2)
-        job_title = col_e1.text_input("Job Title", key=f"job_title_{i}", value="Software Engineering Intern" if i==0 else "")
-        company = col_e2.text_input("Company Name", key=f"company_{i}", value="TechNova Solutions" if i==0 else "")
-        job_dates = st.text_input("Dates (e.g., Jun 2025 - Aug 2025)", key=f"job_dates_{i}", value="Jun 2025 - Aug 2025" if i==0 else "")
+        job_title = col_e1.text_input("Job Title", key=f"job_title_{i}", placeholder="Software Engineering Intern" if i==0 else "")
+        company = col_e2.text_input("Company Name", key=f"company_{i}", placeholder="TechNova Solutions" if i==0 else "")
+        job_dates = st.text_input("Dates (e.g., Jun 2025 - Aug 2025)", key=f"job_dates_{i}", placeholder="Jun 2025 - Aug 2025" if i==0 else "")
         
         st.write("Job Description (Bullet Points)")
         c_text, c_btn = st.columns([4, 1])
@@ -309,9 +309,9 @@ def render_resume_builder():
     for i in range(st.session_state['proj_count']):
         st.markdown(f"**🚀 Project {i+1}**")
         col_p1, col_p2 = st.columns(2)
-        proj_name = col_p1.text_input("Project Name", key=f"proj_name_{i}", value="E-Commerce Analytics Dashboard" if i==0 else "")
-        proj_role = col_p2.text_input("Your Role", key=f"proj_role_{i}", value="Lead Developer" if i==0 else "")
-        proj_dates = st.text_input("Dates", key=f"proj_dates_{i}", value="Jan 2025 - May 2025" if i==0 else "")
+        proj_name = col_p1.text_input("Project Name", key=f"proj_name_{i}", placeholder="E-Commerce Analytics Dashboard" if i==0 else "")
+        proj_role = col_p2.text_input("Your Role", key=f"proj_role_{i}", placeholder="Lead Developer" if i==0 else "")
+        proj_dates = st.text_input("Dates", key=f"proj_dates_{i}", placeholder="Jan 2025 - May 2025" if i==0 else "")
         
         st.write("Project Description (Bullet Points)")
         c_text_p, c_btn_p = st.columns([4, 1])
@@ -330,7 +330,7 @@ def render_resume_builder():
 
     # --- 6. Skills ---
     st.subheader("6. Core Skills")
-    skills = st.text_input("Technical Skills (Comma separated)", value="Python, SQL, Machine Learning, Data Analytics, Networking, Streamlit, Pandas")
+    skills = st.text_input("Technical Skills (Comma separated)", placeholder="Python, SQL, Machine Learning, Data Analytics, Networking, Streamlit, Pandas")
 
     st.markdown("---")
     
