@@ -165,9 +165,9 @@ def main():
             elif choice == "Sign Up":
                 st.subheader("Create a New Account")
                 
-                st.button("Sign up with Google 🌐")
-                st.button("Sign up with LinkedIn 💼")
-                st.markdown("<div style='text-align: center; color: #6B7280; margin: 15px 0; font-size: 0.85rem; font-weight: 600;'>OR REGISTER WITH EMAIL</div>", unsafe_allow_html=True)
+                # st.button("Sign up with Google 🌐")
+                # st.button("Sign up with LinkedIn 💼")
+                # st.markdown("<div style='text-align: center; color: #6B7280; margin: 15px 0; font-size: 0.85rem; font-weight: 600;'>OR REGISTER WITH EMAIL</div>", unsafe_allow_html=True)
 
                 with st.form("signup_form"):
                     col1, col2 = st.columns(2)
